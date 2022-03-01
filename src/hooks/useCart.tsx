@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -29,33 +29,46 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       return JSON.parse(storagedCart);
     }
     return [];
-  });  
+  });
 
-  useEffect(() => {
-    if(cart.length > 0) {      
-      localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
-    }
-  },[cart])
+  localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
 
   const addProduct = async (productId: number) => {
     try {
+      const searchProduct = cart.find((product) => product.id === productId)
+
+      if(searchProduct){
+
+        return updateProductAmount({
+          productId: productId,
+          amount: searchProduct.amount + 1
+        })
+
+      }
+
       const response = await api.get('/products')
       const responseData = await response.data
-      const productSelected = responseData.find((product: Product) => product.id === productId)
-      const productComplete = {...productSelected, amount: 1}
-      setCart([...cart, productComplete])
-      
 
+      const productSelected = responseData.find((product: Product) => product.id === productId)
+
+      setCart([...cart, {...productSelected, amount: 1}])
+      
     } catch {
-      throw('Errou')
+      toast.error('Erro na adição do produto')
     }
-  };
+  }
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
+      const searchProduct = cart.find((product) => product.id === productId)
+
+      if(searchProduct){
+        return setCart([
+          ...cart.filter(productCard => productCard.id !== productId)
+        ])
+      }
     } catch {
-      // TODO
+      toast.error('Erro na remoção do produto')
     }
   };
 
@@ -65,8 +78,29 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
   }: UpdateProductAmount) => {
     try {
 
+      const response = await api.get('/stock')
+      const responseData = await response.data
+
+      const searchProductStock = responseData.find((product: Stock) => product.id === productId)
+
+      const searchProductCart = cart.find((product) => product.id === productId) 
+
+      if(searchProductCart){
+
+        if(amount > searchProductStock.amount){
+          toast.error('Quantidade solicitada fora de estoque')
+        } else {
+          searchProductCart.amount = amount
+
+          return setCart([
+            ...cart.filter(productCard => productCard.id !== productId), searchProductCart
+          ])
+        }
+        
+      }
+      
     } catch {
-      // TODO
+      toast.error('Erro na alteração de quantidade do produto')
     }
   };
 
